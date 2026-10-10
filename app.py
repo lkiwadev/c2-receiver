@@ -1,24 +1,23 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request
 import os
 from datetime import datetime
 
 app = Flask(__name__)
-LOG_FILE = "logs.txt"
 
-@app.route('/log', methods=['POST'])
-def receive_log():
-    data = request.get_data(as_text=True)
-    if data:
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        with open(LOG_FILE, 'a', encoding='utf-8') as f:
-            f.write(f"[{timestamp}] {data}\n")
-        return 'OK', 200
-    return 'No data', 400
-
-@app.route('/logs', methods=['GET'])
-def view_logs():
-    if os.path.exists(LOG_FILE):
-        with open(LOG_FILE, 'r', encoding='utf-8') as f:
+@app.route('/logs', methods=['GET', 'POST'])
+def handle_logs():
+    if request.method == 'POST':
+        data = request.get_data(as_text=True)
+        if data:
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            with open('logs.txt', 'a') as f:
+                f.write(f'[{timestamp}] {data}\n')
+            return 'OK', 200
+        return 'Empty', 400
+    
+    # GET request - show logs
+    if os.path.exists('logs.txt'):
+        with open('logs.txt', 'r') as f:
             return f.read(), 200
     return 'No logs yet', 200
 

